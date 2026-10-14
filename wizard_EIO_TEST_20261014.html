@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RegattaHub — TEST Wizard 14/10/2026</title>
+<style>
+  body{margin:0;background:#0d5e92;color:#1d3f5c;font-family:Arial,sans-serif;}
+  .box{max-width:780px;margin:12vh auto;background:white;border-radius:14px;padding:26px;box-shadow:0 10px 26px #0003}
+  h1{font-size:22px} p{line-height:1.6}
+  #err{color:#b51b1b;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<div class="box"><h1>RegattaHub · Δοκιμαστικός Wizard ΕΙΟ</h1><p id="status">Φόρτωση ασφαλούς δοκιμαστικής έκδοσης του Wizard 4.9…</p><p id="err"></p></div>
+<script>
+(async function () {
+  'use strict';
+  const PROD = 'https://script.google.com/macros/s/AKfycbzMa_WXRbxABK6BKRGEgvFQy2rorkaVMBucIoqThOsjJY_a5fGHIT5-GtdrkzcR83XX/exec';
+  const TEST = 'https://script.google.com/macros/s/AKfycbxe_oZblsPwicANofYebQ4XNRTLcM88TV5VH1_7_I4bPMGJV0mnAUa-vPSf1hGiUbnw/exec';
+  const info = document.getElementById('status');
+  const err = document.getElementById('err');
+  try {
+    const response = await fetch('https://regattahub.github.io/new-race-wizard/', {cache:'no-store'});
+    if (!response.ok) throw Error('Η φόρτωση του αρχικού Wizard απέτυχε: HTTP '+response.status);
+    let source = await response.text();
+    const count = source.split(PROD).length-1;
+    if (count !== 2) throw Error('Ο αρχικός Wizard έχει αλλάξει ('+count+' αναφορές Creator). Δεν θα φορτώσουμε μη ελεγμένη έκδοση.');
+    if (!source.includes('const WIZARD_STORAGE_KEY = "regattahub_new_race_wizard_v45";'))
+      throw Error('Άλλαξε ο μηχανισμός αποθήκευσης Wizard· η δοκιμή διακόπηκε για ασφάλεια.');
+    if (!source.includes('async function createRace() {\n\n  if (!runCreateChecks())'))
+      throw Error('Άλλαξε η δημιουργία αγώνα· η δοκιμή διακόπηκε για ασφάλεια.');
+    if (!source.includes('async function finalizeRace() {'))
+      throw Error('Άλλαξε η ολοκλήρωση αγώνα· η δοκιμή διακόπηκε για ασφάλεια.');
+    if (!source.includes('restoreWizardState();\nwireWizardAutosave();'))
+      throw Error('Άλλαξε η επαναφορά αποθηκευμένων πεδίων· η δοκιμή διακόπηκε για ασφάλεια.');
+
+    source = source.replaceAll(PROD, TEST);
+    source = source.replace('const WIZARD_STORAGE_KEY = "regattahub_new_race_wizard_v45";',
+      'const WIZARD_STORAGE_KEY = "regattahub_eio_wizard_test_20261014_v1";');
+    source = source.replace('<title>RegattaHub - New Race Wizard</title>',
+      '<title>RegattaHub — EIO TEST Wizard (14/10/2026)</title>');
+    source = source.replace('<div class="subtitle">Έκδοση 4.9 — Δημιουργία και ολοκλήρωση νέου αγώνα μέσω REGATTAHUB Creator</div>',
+      '<div class="subtitle">EIO TEST · Ξεχωριστός Wizard 4.9, συνδεδεμένος ΜΟΝΟ με τον TEST Creator</div>'+ 
+      '<div style="background:#fff4d6;border:2px solid #ba7600;padding:14px;margin:12px 0 20px;border-radius:9px;line-height:1.55;color:#5a3500"><strong>⚠ ΔΟΚΙΜΗ ΜΟΝΟ</strong> — Μην χρησιμοποιήσεις ενεργό αγώνα. Επιτρέπονται αποκλειστικά Race Prefix που αρχίζουν με <code>EIO_TEST_</code> και GitHub repositories που αρχίζουν με <code>eio-test-</code>. Ο κανονικός Wizard και Creator παραμένουν ανέπαφοι.</div>');
+    const guard = '\n  if (!/^EIO_TEST_[A-Z0-9_]+$/.test(value("racePrefix")) || !/^eio-test-[a-z0-9-]+$/.test(value("repoName"))) {\n    alert("Αυτή είναι δοκιμαστική έκδοση. Χρησιμοποίησε Race Prefix EIO_TEST_... και repository eio-test-... .");\n    return;\n  }\n';
+    source = source.replace('async function createRace() {\n\n  if (!runCreateChecks())',
+      'async function createRace() {'+guard+'\n  if (!runCreateChecks())');
+    source = source.replace('async function finalizeRace() {', 'async function finalizeRace() {'+guard);
+    source = source.replace('restoreWizardState();\nwireWizardAutosave();',
+      'restoreWizardState();\nwireWizardAutosave();\n'+
+      '$("demoBtn").disabled = true;\n'+
+      '$("demoBtn").title = "Παλαιό demo απενεργοποιημένο στον EIO TEST Wizard";\n'+
+      'if (!value("raceTitle")) $("raceTitle").value = "ΔΟΚΙΜΗ REGATTAHUB ΕΙΟ 2026";\n'+
+      'if (!value("racePrefix")) $("racePrefix").value = "EIO_TEST_20261014";\n'+
+      'if (!value("repoName")) $("repoName").value = "eio-test-20261014";\n');
+    if (source.includes(PROD) || source.split(TEST).length-1 !== 2 || !source.includes('⚠ ΔΟΚΙΜΗ ΜΟΝΟ'))
+      throw Error('Ο έλεγχος απομόνωσης απέτυχε. Δεν φορτώθηκε Wizard.');
+    info.textContent='Φόρτωση ελεγμένη. Άνοιγμα δοκιμαστικού Wizard…';
+    document.open(); document.write(source); document.close();
+  } catch (e) {
+    console.error('EIO TEST Wizard safety stop', e);
+    info.textContent='Η δοκιμαστική φόρτωση σταμάτησε χωρίς καμία αλλαγή.';
+    err.textContent=String(e && e.message ? e.message : e);
+  }
+})();
+</script>
+</body>
+</html>
